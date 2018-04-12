@@ -181,7 +181,7 @@ void execution_impl_bfs(void* unused_arg)
         
         if (use_gather_for_processing)
         {
-            // if the threshold is met, use the Gather phase to do this round of processing
+            // if the threshold is met, use the Pull engine to do this round of processing
             num_iterations_used_gather += 1ull;
             
             // perform the Edge-Pull phase

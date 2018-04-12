@@ -8,7 +8,7 @@
 ; (c) 2015-2018
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; phasehelpers.inc
-;      Implementation of helper macros for both Gather and Combine phases.
+;      Implementation of helper macros for both Edge and Vertex phases.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 IFNDEF __GRAZELLE_PHASEHELPERS_INC
