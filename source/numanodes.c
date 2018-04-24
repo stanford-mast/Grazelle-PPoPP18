@@ -22,6 +22,8 @@
 #include <Windows.h>
 #else
 #include <numa.h>
+#include <sched.h>
+#include <sys/mman.h>
 #endif
 
 
@@ -186,9 +188,19 @@ void* numanodes_malloc(size_t size, uint32_t node)
     mem = (void*)VirtualAllocExNuma(GetCurrentProcess(), NULL, (SIZE_T)(size), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE, node);
 #else
     mem = numa_alloc_onnode(size, node);
+    
+    if ((NULL != mem) && (size > 1048576))
+        madvise(mem, size, MADV_HUGEPAGE);
 #endif
     
     return mem;
+}
+
+// ---------
+
+void* numanodes_malloc_local(size_t size)
+{
+    return numanodes_malloc(size, numa_node_of_cpu(sched_getcpu()));
 }
 
 // ---------

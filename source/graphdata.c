@@ -521,7 +521,7 @@ void graph_helper_close_graph_file()
     {
         if (NULL != graph_edges_read_buffer[i])
         {
-            free_aligned_mem((void *)graph_edges_read_buffer[i]);
+            numanodes_free((void *)graph_edges_read_buffer[i], sizeof(uint64_t) * graph_edges_read_buffer_max_count);
             graph_edges_read_buffer[i] = NULL;
             graph_edges_read_buffer_count[i] = 0ull;
         }
@@ -556,7 +556,7 @@ void graph_helper_open_file_and_extract_graph_info(const char* filename)
         {
             if (NULL == graph_edges_read_buffer[i])
             {
-                graph_edges_read_buffer[i] = (uint64_t*)alloc_aligned_mem(sizeof(uint64_t) * graph_edges_read_buffer_max_count, 64);
+                graph_edges_read_buffer[i] = (uint64_t*)numanodes_malloc_local(sizeof(uint64_t) * graph_edges_read_buffer_max_count);
             
                 if (NULL == graph_edges_read_buffer[i])
                 {
@@ -908,8 +908,8 @@ void graph_helper_build_gather_list(uint32_t on_numa_node)
     // copy over common edge-list-building values that are specific to the in-edge list
     graph_edges_gather_list_vector_count = graph_edge_list_vector_count;
     graph_edges_gather_list_num_blocks = graph_edge_list_num_blocks;
-    graph_edges_gather_list_block_first_dest_vertex = (uint64_t*)alloc_aligned_mem(sizeof(uint64_t) * graph_edges_gather_list_num_blocks, 64);
-    graph_edges_gather_list_block_last_dest_vertex = (uint64_t*)alloc_aligned_mem(sizeof(uint64_t) * graph_edges_gather_list_num_blocks, 64);
+    graph_edges_gather_list_block_first_dest_vertex = (uint64_t*)numanodes_malloc_local(sizeof(uint64_t) * graph_edges_gather_list_num_blocks);
+    graph_edges_gather_list_block_last_dest_vertex = (uint64_t*)numanodes_malloc_local(sizeof(uint64_t) * graph_edges_gather_list_num_blocks);
     memcpy((void*)graph_edges_gather_list_block_first_dest_vertex, (void*)graph_edge_list_block_first_shared_vertex, sizeof(uint64_t*) * graph_edges_gather_list_num_blocks);
     memcpy((void*)graph_edges_gather_list_block_last_dest_vertex, (void*)graph_edge_list_block_last_shared_vertex, sizeof(uint64_t*) * graph_edges_gather_list_num_blocks);
     
@@ -935,8 +935,8 @@ void graph_helper_build_scatter_list(uint32_t on_numa_node)
     // copy over common edge-list-building values that are specific to the in-edge list
     graph_edges_scatter_list_vector_count = graph_edge_list_vector_count;
     graph_edges_scatter_list_num_blocks = graph_edge_list_num_blocks;
-    graph_edges_scatter_list_block_first_source_vertex = (uint64_t*)alloc_aligned_mem(sizeof(uint64_t) * graph_edges_scatter_list_num_blocks, 64);
-    graph_edges_scatter_list_block_last_source_vertex = (uint64_t*)alloc_aligned_mem(sizeof(uint64_t) * graph_edges_scatter_list_num_blocks, 64);
+    graph_edges_scatter_list_block_first_source_vertex = (uint64_t*)numanodes_malloc_local(sizeof(uint64_t) * graph_edges_scatter_list_num_blocks);
+    graph_edges_scatter_list_block_last_source_vertex = (uint64_t*)numanodes_malloc_local(sizeof(uint64_t) * graph_edges_scatter_list_num_blocks);
     memcpy((void*)graph_edges_scatter_list_block_first_source_vertex, (void*)graph_edge_list_block_first_shared_vertex, sizeof(uint64_t*) * graph_edges_scatter_list_num_blocks);
     memcpy((void*)graph_edges_scatter_list_block_last_source_vertex, (void*)graph_edge_list_block_last_shared_vertex, sizeof(uint64_t*) * graph_edges_scatter_list_num_blocks);
     
@@ -984,9 +984,9 @@ void graph_data_read_from_file(const char* filename_gather, const char* filename
     // initialize ingress data structures
     graph_edge_list_vector_count = 0ull;
     graph_edge_list_num_blocks = 0ull;
-    graph_edge_list_block_counts = (uint64_t*)alloc_aligned_mem(sizeof(uint64_t), 64);
-    graph_edge_list_block_first_shared_vertex = (uint64_t*)alloc_aligned_mem(sizeof(uint64_t), 64);
-    graph_edge_list_block_last_shared_vertex = (uint64_t*)alloc_aligned_mem(sizeof(uint64_t), 64);
+    graph_edge_list_block_counts = (uint64_t*)numanodes_malloc_local(sizeof(uint64_t));
+    graph_edge_list_block_first_shared_vertex = (uint64_t*)numanodes_malloc_local(sizeof(uint64_t));
+    graph_edge_list_block_last_shared_vertex = (uint64_t*)numanodes_malloc_local(sizeof(uint64_t));
     memset((void*)graph_edge_list_block_counts, 0, sizeof(uint64_t));
     memset((void*)graph_edge_list_block_first_shared_vertex, 0, sizeof(uint64_t));
     memset((void*)graph_edge_list_block_last_shared_vertex, 0, sizeof(uint64_t));
@@ -1019,9 +1019,9 @@ void graph_data_read_from_file(const char* filename_gather, const char* filename
     // initialize ingress data structures
     graph_edge_list_vector_count = 0ull;
     graph_edge_list_num_blocks = 0ull;
-    graph_edge_list_block_counts = (uint64_t*)alloc_aligned_mem(sizeof(uint64_t), 64);
-    graph_edge_list_block_first_shared_vertex = (uint64_t*)alloc_aligned_mem(sizeof(uint64_t), 64);
-    graph_edge_list_block_last_shared_vertex = (uint64_t*)alloc_aligned_mem(sizeof(uint64_t), 64);
+    graph_edge_list_block_counts = (uint64_t*)numanodes_malloc_local(sizeof(uint64_t));
+    graph_edge_list_block_first_shared_vertex = (uint64_t*)numanodes_malloc_local(sizeof(uint64_t));
+    graph_edge_list_block_last_shared_vertex = (uint64_t*)numanodes_malloc_local(sizeof(uint64_t));
     memset((void*)graph_edge_list_block_counts, 0, sizeof(uint64_t));
     memset((void*)graph_edge_list_block_first_shared_vertex, 0, sizeof(uint64_t));
     memset((void*)graph_edge_list_block_last_shared_vertex, 0, sizeof(uint64_t));

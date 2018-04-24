@@ -48,6 +48,10 @@ uint32_t numanodes_get_nth_processor_on_node(uint32_t n, uint32_t node);
 // Returns NULL on failure.
 void* numanodes_malloc(size_t size, uint32_t node);
 
+// Allocates a memory buffer on the local NUMA node (i.e. whatever node calls this function).
+// Returns NULL on failure.
+void* numanodes_malloc_local(size_t size);
+
 // Frees memory allocated using this subsystem.
 void numanodes_free(void* mem, size_t size);
 
