@@ -64,9 +64,9 @@ Grazelle expects that each graph will be represented using two binary edge lists
 
 ## Paper Experiment Datasets
 
-Unfortunately, datasets are far too large to be hosted on GitHub.  We are therefore supplying pre-converted ready-to-use versions of each of the graphs from the paper in the following Google Drive folder.
+Pre-converted ready-to-use versions of each of the graphs from the paper are included with our paper artifact, which is available at the following address.
 
-https://drive.google.com/open?id=1wMvyikOTJTvZCHwPJzSl65AU8st1DasO
+https://doi.org/10.5281/zenodo.1169388
 
 
 ## Custom Datasets

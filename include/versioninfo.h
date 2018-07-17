@@ -25,7 +25,7 @@
 #else
 #define GRAZELLE_PROGRAM_NAME                   "Grazelle-PR"
 #endif
-#define GRAZELLE_PROGRAM_VERSION                "1.0-ppopp18"
+#define GRAZELLE_PROGRAM_VERSION                "1.0.1-ppopp18"
 
 
 /* -------- PLATFORM-SPECIFIC CHECKS AND MACROS ---------------------------- */
