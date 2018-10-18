@@ -1,0 +1,27 @@
+Our evaluation uses a modified version of Polymer to correct the following issues:
+     - CC/BFS: allow number of NUMA nodes to be specified
+
+To obtain this modified version, apply the supplied patch to the original source code:
+    1. wget https://github.com/realstolz/polymer/archive/417778377a767c1c2ee535bd3eb56e22f4925626.tar.gz
+    2. tar -xzvf 417778377a767c1c2ee535bd3eb56e22f4925626.tar.gz
+    3. cd polymer-417778377a767c1c2ee535bd3eb56e22f4925626
+    4. patch -p1 < [path-to-polymer-patch]
+
+To build Polymer after producing the modified version:
+    1. cd polymer-417778377a767c1c2ee535bd3eb56e22f4925626
+    2. make CILK=1 -j [num-jobs]
+
+Polymer outputs application running time in seconds to the console.
+The parameter [num-numa-nodes] is the actual number of NUMA nodes to be used in the execution (1 = single node, 2 = two nodes, etc.).
+
+Do not attempt to run Polymer with uk-2007, otherwise it will crash.
+This is due to a Polymer implementation issue, as described in the paper.
+
+To run PageRank (Figure 11):
+    ./numa-PageRank [graph-path] [num-iters] [num-numa-nodes]
+
+To run CC (Figure 12):
+    ./numa-Components [graph-path] [num-numa-nodes]
+
+To run BFS (Figure 13):
+    ./numa-BFS [graph-path] [num-numa-nodes]

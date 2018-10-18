@@ -1,0 +1,326 @@
+diff -ruN ligra-v.1.5.orig/apps/BFSDense.C ligra-v.1.5/apps/BFSDense.C
+--- ligra-v.1.5.orig/apps/BFSDense.C	1969-12-31 16:00:00.000000000 -0800
++++ ligra-v.1.5/apps/BFSDense.C	2017-12-26 20:54:00.857511093 -0800
+@@ -0,0 +1,56 @@
++// This code is part of the project "Ligra: A Lightweight Graph Processing
++// Framework for Shared Memory", presented at Principles and Practice of 
++// Parallel Programming, 2013.
++// Copyright (c) 2013 Julian Shun and Guy Blelloch
++//
++// Permission is hereby granted, free of charge, to any person obtaining a
++// copy of this software and associated documentation files (the
++// "Software"), to deal in the Software without restriction, including
++// without limitation the rights (to use, copy, modify, merge, publish,
++// distribute, sublicense, and/or sell copies of the Software, and to
++// permit persons to whom the Software is furnished to do so, subject to
++// the following conditions:
++//
++// The above copyright notice and this permission notice shall be included
++// in all copies or substantial portions of the Software.
++//
++// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
++// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
++#include "ligra.h"
++
++struct BFS_F {
++  uintE* Parents;
++  BFS_F(uintE* _Parents) : Parents(_Parents) {}
++  inline bool update (uintE s, uintE d) { //Update
++    if(Parents[d] == UINT_E_MAX) { Parents[d] = s; return 1; }
++    else return 0;
++  }
++  inline bool updateAtomic (uintE s, uintE d){ //atomic version of Update
++    return (CAS(&Parents[d],UINT_E_MAX,s));
++  }
++  //cond function checks if vertex has been visited yet
++  inline bool cond (uintE d) { return (Parents[d] == UINT_E_MAX); } 
++};
++
++template <class vertex>
++void Compute(graph<vertex>& GA, commandLine P) {
++  long start = P.getOptionLongValue("-r",0);
++  long n = GA.n;
++  //creates Parents array, initialized to all -1, except for start
++  uintE* Parents = newA(uintE,n);
++  parallel_for(long i=0;i<n;i++) Parents[i] = UINT_E_MAX;
++  Parents[start] = start;
++  vertexSubset Frontier(n,start); //creates initial frontier
++  while(!Frontier.isEmpty()){ //loop until frontier is empty
++    vertexSubset output = edgeMapAlwaysDense(GA, Frontier, BFS_F(Parents));    
++    Frontier.del();
++    Frontier = output; //set new frontier
++  } 
++  Frontier.del();
++  free(Parents); 
++}
+diff -ruN ligra-v.1.5.orig/apps/ComponentsDense.C ligra-v.1.5/apps/ComponentsDense.C
+--- ligra-v.1.5.orig/apps/ComponentsDense.C	1969-12-31 16:00:00.000000000 -0800
++++ ligra-v.1.5/apps/ComponentsDense.C	2017-12-26 20:53:55.597712281 -0800
+@@ -0,0 +1,69 @@
++// This code is part of the project "Ligra: A Lightweight Graph Processing
++// Framework for Shared Memory", presented at Principles and Practice of 
++// Parallel Programming, 2013.
++// Copyright (c) 2013 Julian Shun and Guy Blelloch
++//
++// Permission is hereby granted, free of charge, to any person obtaining a
++// copy of this software and associated documentation files (the
++// "Software"), to deal in the Software without restriction, including
++// without limitation the rights (to use, copy, modify, merge, publish,
++// distribute, sublicense, and/or sell copies of the Software, and to
++// permit persons to whom the Software is furnished to do so, subject to
++// the following conditions:
++//
++// The above copyright notice and this permission notice shall be included
++// in all copies or substantial portions of the Software.
++//
++// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
++// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
++#include "ligra.h"
++
++struct CC_F {
++  uintE* IDs, *prevIDs;
++  CC_F(uintE* _IDs, uintE* _prevIDs) : 
++    IDs(_IDs), prevIDs(_prevIDs) {}
++  inline bool update(uintE s, uintE d){ //Update function writes min ID
++    uintE origID = IDs[d];
++    if(IDs[s] < origID) {
++      IDs[d] = min(origID,IDs[s]);
++      if(origID == prevIDs[d]) return 1;
++    } return 0; }
++  inline bool updateAtomic (uintE s, uintE d) { //atomic Update
++    uintE origID = IDs[d];
++    return (writeMin(&IDs[d],IDs[s]) && origID == prevIDs[d]);
++  }
++  inline bool cond (uintE d) { return cond_true(d); } //does nothing
++};
++
++//function used by vertex map to sync prevIDs with IDs
++struct CC_Vertex_F {
++  uintE* IDs, *prevIDs;
++  CC_Vertex_F(uintE* _IDs, uintE* _prevIDs) :
++    IDs(_IDs), prevIDs(_prevIDs) {}
++  inline bool operator () (uintE i) {
++    prevIDs[i] = IDs[i];
++    return 1; }};
++
++template <class vertex>
++void Compute(graph<vertex>& GA, commandLine P) {
++  long n = GA.n;
++  uintE* IDs = newA(uintE,n), *prevIDs = newA(uintE,n);
++  {parallel_for(long i=0;i<n;i++) IDs[i] = i;} //initialize unique IDs
++
++  bool* frontier = newA(bool,n);
++  {parallel_for(long i=0;i<n;i++) frontier[i] = 1;} 
++  vertexSubset Frontier(n,n,frontier); //initial frontier contains all vertices
++
++  while(!Frontier.isEmpty()){ //iterate until IDS converge
++    vertexMap(Frontier,CC_Vertex_F(IDs,prevIDs));
++    vertexSubset output = edgeMapAlwaysDense(GA, Frontier, CC_F(IDs,prevIDs));
++    Frontier.del();
++    Frontier = output;
++  }
++  Frontier.del(); free(IDs); free(prevIDs);
++}
+diff -ruN ligra-v.1.5.orig/apps/Makefile ligra-v.1.5/apps/Makefile
+--- ligra-v.1.5.orig/apps/Makefile	2016-03-16 01:15:59.000000000 -0700
++++ ligra-v.1.5/apps/Makefile	2017-12-26 20:54:29.984396978 -0800
+@@ -39,7 +39,7 @@
+ 
+ COMMON= ligra.h graph.h compressedVertex.h vertex.h utils.h IO.h parallel.h gettime.h quickSort.h blockRadixSort.h transpose.h parseCommandLine.h byte.h byteRLE.h nibble.h byte-pd.h byteRLE-pd.h nibble-pd.h vertexSubset.h encoder.C
+ 
+-ALL= encoder BFS BC BellmanFord Components Radii PageRank PageRankDelta BFSCC BFS-Bitvector KCore MIS Triangle
++ALL= encoder BFS BFSDense BC BellmanFord Components ComponentsDense Radii PageRank PageRankDelta PageRankPush BFSCC BFS-Bitvector KCore MIS Triangle
+ 
+ all: $(ALL)
+ 
+diff -ruN ligra-v.1.5.orig/apps/PageRank.C ligra-v.1.5/apps/PageRank.C
+--- ligra-v.1.5.orig/apps/PageRank.C	2016-03-16 01:15:59.000000000 -0700
++++ ligra-v.1.5/apps/PageRank.C	2017-12-26 20:34:51.793452532 -0800
+@@ -87,11 +87,11 @@
+     vertexSubset output = edgeMap(GA,Frontier,PR_F<vertex>(p_curr,p_next,GA.V),0);
+     vertexMap(Frontier,PR_Vertex_F(p_curr,p_next,damping,n));
+     //compute L1-norm between p_curr and p_next
+-    {parallel_for(long i=0;i<n;i++) {
+-      p_curr[i] = fabs(p_curr[i]-p_next[i]);
+-      }}
+-    double L1_norm = sequence::plusReduce(p_curr,n);
+-    if(L1_norm < epsilon) break;
++    //{parallel_for(long i=0;i<n;i++) {
++    //  p_curr[i] = fabs(p_curr[i]-p_next[i]);
++    //  }}
++    //double L1_norm = sequence::plusReduce(p_curr,n);
++    //if(L1_norm < epsilon) break;
+     //reset p_curr
+     vertexMap(Frontier,PR_Vertex_Reset(p_curr));
+     swap(p_curr,p_next);
+diff -ruN ligra-v.1.5.orig/apps/PageRankPush.C ligra-v.1.5/apps/PageRankPush.C
+--- ligra-v.1.5.orig/apps/PageRankPush.C	1969-12-31 16:00:00.000000000 -0800
++++ ligra-v.1.5/apps/PageRankPush.C	2017-12-26 20:48:22.266461416 -0800
+@@ -0,0 +1,102 @@
++// This code is part of the project "Ligra: A Lightweight Graph Processing
++// Framework for Shared Memory", presented at Principles and Practice of 
++// Parallel Programming, 2013.
++// Copyright (c) 2013 Julian Shun and Guy Blelloch
++//
++// Permission is hereby granted, free of charge, to any person obtaining a
++// copy of this software and associated documentation files (the
++// "Software"), to deal in the Software without restriction, including
++// without limitation the rights (to use, copy, modify, merge, publish,
++// distribute, sublicense, and/or sell copies of the Software, and to
++// permit persons to whom the Software is furnished to do so, subject to
++// the following conditions:
++//
++// The above copyright notice and this permission notice shall be included
++// in all copies or substantial portions of the Software.
++//
++// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
++// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
++#include "ligra.h"
++#include "math.h"
++
++template <class vertex>
++struct PR_F {
++  double* p_curr, *p_next;
++  vertex* V;
++  PR_F(double* _p_curr, double* _p_next, vertex* _V) : 
++    p_curr(_p_curr), p_next(_p_next), V(_V) {}
++  inline bool update(uintE s, uintE d){ //update function applies PageRank equation
++    p_next[d] += p_curr[s]/V[s].getOutDegree();
++    return 1;
++  }
++  inline bool updateAtomic (uintE s, uintE d) { //atomic Update
++    writeAdd(&p_next[d],p_curr[s]/V[s].getOutDegree());
++    return 1;
++  }
++  inline bool cond (intT d) { return cond_true(d); }};
++
++//vertex map function to update its p value according to PageRank equation
++struct PR_Vertex_F {
++  double damping;
++  double addedConstant;
++  double* p_curr;
++  double* p_next;
++  PR_Vertex_F(double* _p_curr, double* _p_next, double _damping, intE n) :
++    p_curr(_p_curr), p_next(_p_next), 
++    damping(_damping), addedConstant((1-_damping)*(1/(double)n)){}
++  inline bool operator () (uintE i) {
++    p_next[i] = damping*p_next[i] + addedConstant;
++    return 1;
++  }
++};
++
++//resets p
++struct PR_Vertex_Reset {
++  double* p_curr;
++  PR_Vertex_Reset(double* _p_curr) :
++    p_curr(_p_curr) {}
++  inline bool operator () (uintE i) {
++    p_curr[i] = 0.0;
++    return 1;
++  }
++};
++
++template <class vertex>
++void Compute(graph<vertex>& GA, commandLine P) {
++  long maxIters = P.getOptionLongValue("-maxiters",100);
++  const intE n = GA.n;
++  const double damping = 0.85, epsilon = 0.0000001;
++  
++  double one_over_n = 1/(double)n;
++  double* p_curr = newA(double,n);
++  {parallel_for(long i=0;i<n;i++) p_curr[i] = one_over_n;}
++  double* p_next = newA(double,n);
++  {parallel_for(long i=0;i<n;i++) p_next[i] = 0;} //0 if unchanged
++  bool* frontier = newA(bool,n);
++  {parallel_for(long i=0;i<n;i++) frontier[i] = 1;}
++
++  vertexSubset Frontier(n,n,frontier);
++  
++  long iter = 0;
++  while(iter++ < maxIters) {
++    vertexSubset output = edgeMap(GA,Frontier,PR_F<vertex>(p_curr,p_next,GA.V),0,DENSE_FORWARD);
++    vertexMap(Frontier,PR_Vertex_F(p_curr,p_next,damping,n));
++    //compute L1-norm between p_curr and p_next
++    //{parallel_for(long i=0;i<n;i++) {
++    //  p_curr[i] = fabs(p_curr[i]-p_next[i]);
++    //  }}
++    //double L1_norm = sequence::plusReduce(p_curr,n);
++    //if(L1_norm < epsilon) break;
++    //reset p_curr
++    vertexMap(Frontier,PR_Vertex_Reset(p_curr));
++    swap(p_curr,p_next);
++    Frontier.del(); 
++    Frontier = output;
++  }
++  Frontier.del(); free(p_curr); free(p_next); 
++}
+diff -ruN ligra-v.1.5.orig/ligra/ligra.h ligra-v.1.5/ligra/ligra.h
+--- ligra-v.1.5.orig/ligra/ligra.h	2016-03-16 01:15:59.000000000 -0700
++++ ligra-v.1.5/ligra/ligra.h	2017-12-26 20:52:50.272210958 -0800
+@@ -141,6 +141,51 @@
+   }
+ }
+ 
++///////////////////
++// decides on push or pull (always dense) base on number of nonzeros in the active vertices
++template <class vertex, class F>
++vertexSubset edgeMapAlwaysDense(graph<vertex> GA, vertexSubset &V, F f, intT threshold = -1, 
++		 char option=DENSE, bool remDups=false) {
++  long numVertices = GA.n, numEdges = GA.m;
++  if(threshold == -1) threshold = numEdges/20; //default threshold
++  vertex *G = GA.V;
++  long m = V.numNonzeros();
++  if (numVertices != V.numRows()) {
++    cout << "edgeMap: Sizes Don't match" << endl;
++    abort();
++  }
++  // used to generate nonzero indices to get degrees
++  uintT* degrees = newA(uintT, m);
++  vertex* frontierVertices;
++  V.toSparse();
++  frontierVertices = newA(vertex,m);
++  {parallel_for (long i=0; i < m; i++){
++    vertex v = G[V.s[i]];
++    degrees[i] = v.getOutDegree();
++    frontierVertices[i] = v;
++    }}
++  uintT outDegrees = sequence::plusReduce(degrees, m);
++  if (outDegrees == 0) return vertexSubset(numVertices);
++  
++  V.toDense();
++  free(degrees);
++  free(frontierVertices);
++  
++  if (m + outDegrees > threshold) { 
++    bool* R = edgeMapDense(GA, V.d, f, DENSE);
++    vertexSubset v1 = vertexSubset(numVertices, R);
++    //cout << "size (D) = " << v1.m << endl;
++    return v1;
++  } else {
++    bool* R = edgeMapDenseForward(GA,V.d,f);
++    vertexSubset v1 = vertexSubset(numVertices, R);
++    //cout << "size (D) = " << v1.m << endl;
++    return v1;
++  }
++}
++///////////////////
++
++
+ //*****VERTEX FUNCTIONS*****
+ 
+ //Note: this is the optimized version of vertexMap which does not

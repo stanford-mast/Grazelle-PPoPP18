@@ -71,7 +71,7 @@ https://doi.org/10.5281/zenodo.1169388
 
 ## Custom Datasets
 
-We are developing a tool to aid in the conversion of graphs from one format to another, including Grazelle's binary edge list format.  We will update this section once said tool is released.
+[**GraphTool**](https://github.com/stanford-mast/GraphTool) can be used to perform basic format conversion.  Converting graphs to Grazelle's binary edge list format can be performed using this tool, although it is likely some manual intervention will also be required.
 
 
 # Running
@@ -108,10 +108,9 @@ When running PageRank, we suggest executing a sufficient number of iterations to
 
 ## Comparing with Other Frameworks
 
-Reproducing Figures 11, 12, and 13 requires comparing performance results obtained by running Grazelle with those obtained by running other frameworks.  Resources to aid in carrying out this comparison, including instructions and all input datasets encoded using the format expected by each other framework, are available in the following Google Drive folders.
+Reproducing Figures 11, 12, and 13 requires comparing performance results obtained by running Grazelle with those obtained by running other frameworks.  Resources to aid in carrying out this comparison, including instructions and all input datasets encoded using the format expected by each other framework, are available in the "comparison" folder of this repository.
 
-- GraphMat:  https://drive.google.com/open?id=13GIAbcxdoB59mP1lal3CgreqLKaM0oDS
-- Ligra and Polymer: https://drive.google.com/open?id=1Lwyon9cAM8V8UwfO8kcIakzBD6qX2H6L
+[**GraphTool**](https://github.com/stanford-mast/GraphTool) fully supports converting graphs from the format used by Grazelle to the format used by the other frameworks in the comparison.
 
 
 ## Notes

@@ -1,0 +1,381 @@
+diff -ruN GraphMat-1.0-single-node.orig/Makefile GraphMat-1.0-single-node/Makefile
+--- GraphMat-1.0-single-node.orig/Makefile	2016-08-02 16:03:41.000000000 -0700
++++ GraphMat-1.0-single-node/Makefile	2017-12-26 22:07:01.859232349 -0800
+@@ -1,14 +1,14 @@
+-CXX=icpc
+-CXX_OPTIONS=-qopenmp -std=c++11 -I./src/ 
++CXX=g++
++CXX_OPTIONS=-fopenmp -std=c++11 -I./src/ 
+ 
+ 
+ ifeq (${debug}, 1)
+   CXX_OPTIONS += -g
+ else
+-  CXX_OPTIONS += -O3 -ipo 
++  CXX_OPTIONS += -O3 
+ endif
+ 
+-CXX_OPTIONS += -xHost
++CXX_OPTIONS += -march=native
+ 
+ ifeq (${timing}, 1)
+   CXX_OPTIONS += -D__TIMING
+@@ -18,11 +18,11 @@
+ SRCDIR=src
+ BINDIR=bin
+ 
+-SOURCES=$(SRCDIR)/PageRank.cpp $(SRCDIR)/Degree.cpp $(SRCDIR)/BFS.cpp $(SRCDIR)/SGD.cpp $(SRCDIR)/TriangleCounting.cpp $(SRCDIR)/SSSP.cpp $(SRCDIR)/Delta.cpp
++SOURCES=$(SRCDIR)/PageRank.cpp $(SRCDIR)/Degree.cpp $(SRCDIR)/BFS.cpp $(SRCDIR)/SGD.cpp $(SRCDIR)/TriangleCounting.cpp $(SRCDIR)/SSSP.cpp $(SRCDIR)/Delta.cpp $(SRCDIR)/CC.cpp
+ 
+ DEPS=$(SRCDIR)/SPMV.cpp $(SRCDIR)/Graph.cpp $(SRCDIR)/GraphProgram.cpp $(SRCDIR)/SparseVector.cpp $(SRCDIR)/GraphMatRuntime.cpp
+ 
+-EXE=$(BINDIR)/PageRank $(BINDIR)/IncrementalPageRank $(BINDIR)/BFS $(BINDIR)/TriangleCounting $(BINDIR)/SGD $(BINDIR)/SSSP $(BINDIR)/DS $(BINDIR)/LDA
++EXE=$(BINDIR)/PageRank $(BINDIR)/IncrementalPageRank $(BINDIR)/BFS $(BINDIR)/TriangleCounting $(BINDIR)/SGD $(BINDIR)/SSSP $(BINDIR)/DS $(BINDIR)/LDA $(BINDIR)/CC
+ 
+ 
+ all: $(EXE) graph_converter
+@@ -55,5 +55,8 @@
+ $(BINDIR)/DS: $(DEPS) $(SRCDIR)/Delta.cpp
+ 	$(CXX) $(CXX_OPTIONS) -o $(BINDIR)/DS $(SRCDIR)/Delta.cpp
+ 
++$(BINDIR)/CC: $(DEPS) $(SRCDIR)/CC.cpp
++	$(CXX) $(CXX_OPTIONS) -o $(BINDIR)/CC $(SRCDIR)/CC.cpp
++
+ clean:
+ 	rm $(EXE) bin/graph_converter
+diff -ruN GraphMat-1.0-single-node.orig/src/BFS.cpp GraphMat-1.0-single-node/src/BFS.cpp
+--- GraphMat-1.0-single-node.orig/src/BFS.cpp	2016-08-02 16:03:41.000000000 -0700
++++ GraphMat-1.0-single-node/src/BFS.cpp	2017-12-26 22:07:01.859232349 -0800
+@@ -42,8 +42,8 @@
+     depth_type old_depth;
+   public:
+     BFSD() {
+-      depth = 255;//INT_MAX;
+-      old_depth = 255;//INT_MAX;
++      depth = INT_MAX; //255;//INT_MAX;
++      old_depth = INT_MAX; //255;//INT_MAX;
+     }
+     bool operator != (const BFSD& p) {
+       return (this->depth != p.depth);
+@@ -93,7 +93,7 @@
+     unsigned long long int id;
+   public:
+     BFSD2() {
+-      depth = 255;//INT_MAX;
++      depth = INT_MAX; //255;//INT_MAX;
+       parent = -1;
+       id = -1;
+     }
+@@ -140,7 +140,7 @@
+ 
+   //void apply(const depth_type& message_out, BFSD2& vertexprop)  {
+   void apply(const unsigned long long int& message_out, BFSD2& vertexprop)  {
+-    if (vertexprop.depth == 255) {
++    if (vertexprop.depth == INT_MAX) { //255) {
+       vertexprop.depth = current_depth;
+       vertexprop.parent = message_out;
+     }
+@@ -158,7 +158,7 @@
+   unsigned long long int id;
+ public:
+   ID_depth() {
+-    depth = 255;
++    depth = INT_MAX; //255;
+     id = -1;
+   }
+ };
+@@ -247,14 +247,14 @@
+ 
+   int reachable_vertices = 0;
+   for (int i = 1; i <= G.nvertices; i++) {
+-    if (G.getVertexproperty(i).depth < 255) {
++    if (G.getVertexproperty(i).depth < INT_MAX) { //255) {
+       reachable_vertices++;
+     }
+   }
+   printf("Reachable vertices = %d \n", reachable_vertices);
+ 
+   for (int i = 1; i <= std::min(10, G.nvertices); i++) {
+-    if (G.getVertexproperty(i).depth < 255) {
++    if (G.getVertexproperty(i).depth < INT_MAX) { //255) {
+       printf("Depth %d : %d \n", i, G.getVertexproperty(i).depth);
+     }
+     else {
+diff -ruN GraphMat-1.0-single-node.orig/src/CC.cpp GraphMat-1.0-single-node/src/CC.cpp
+--- GraphMat-1.0-single-node.orig/src/CC.cpp	1969-12-31 16:00:00.000000000 -0800
++++ GraphMat-1.0-single-node/src/CC.cpp	2017-12-26 22:07:01.859232349 -0800
+@@ -0,0 +1,128 @@
++/******************************************************************************
++** Copyright (c) 2015, Intel Corporation                                     **
++** All rights reserved.                                                      **
++**                                                                           **
++** Redistribution and use in source and binary forms, with or without        **
++** modification, are permitted provided that the following conditions        **
++** are met:                                                                  **
++** 1. Redistributions of source code must retain the above copyright         **
++**    notice, this list of conditions and the following disclaimer.          **
++** 2. Redistributions in binary form must reproduce the above copyright      **
++**    notice, this list of conditions and the following disclaimer in the    **
++**    documentation and/or other materials provided with the distribution.   **
++** 3. Neither the name of the copyright holder nor the names of its          **
++**    contributors may be used to endorse or promote products derived        **
++**    from this software without specific prior written permission.          **
++**                                                                           **
++** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
++** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
++** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
++** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
++** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
++** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
++** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
++** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
++** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
++** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
++** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++* ******************************************************************************/
++/* Narayanan Sundaram (Intel Corp.)
++ * Samuel Grossman (Stanford University)
++ * ******************************************************************************/
++
++#include <climits>
++#include <cfloat>
++
++#include "GraphMatRuntime.cpp"
++
++class CCD {
++  public:
++    
++    unsigned int component;
++    unsigned int id;
++    
++  public:
++    CCD() {
++        component = 0;
++        id = 0;
++    }
++    bool operator != (const CCD& p) {
++        return (this->component != p.component);
++    }
++    void print() {
++        printf("id %u\t component %u\n", id, component);
++    }
++};
++
++class CC : public GraphProgram<unsigned int, unsigned int, CCD> {
++  public:
++    CC() {
++        this->order = OUT_EDGES;
++    }
++    
++    void reduce_function(unsigned int& a, const unsigned int& b) const {
++        a = (a<=b)?(a):(b);
++    }
++    
++    void process_message(const unsigned int& message, const int edge_val, const CCD& vertexprop, unsigned int &res) const {
++        res = message;
++    }
++    
++    bool send_message(const CCD& vertexprop, unsigned int& message) const {
++        message = vertexprop.component;
++        return true;
++    }
++    
++    void apply(const unsigned int& message_out, CCD& vertexprop) {
++        vertexprop.component = (vertexprop.component <= message_out)?(vertexprop.component):(message_out);
++    }
++};
++
++void run_cc(const char* filename, int nthreads) {
++    Graph<CCD> G;
++    G.ReadMTX(filename, nthreads*4);
++    
++    for (int i = 1; i <= G.nvertices; i++) {
++        CCD v;
++        v.id = i;
++        v.component = i;
++        G.setVertexproperty(i, v);
++    }
++    
++    CC c;
++    
++    auto c_tmp = graph_program_init(c, G);
++    
++    struct timeval start, end;
++    gettimeofday(&start, 0);
++
++    G.setAllActive();
++    run_graph_program(&c, G, -1, &c_tmp);
++    
++    gettimeofday(&end, 0);
++    printf("Time = %.3f ms \n", (end.tv_sec-start.tv_sec)*1e3+(end.tv_usec-start.tv_usec)*1e-3);
++
++    graph_program_clear(c_tmp);
++}
++
++int main (int argc, char* argv[]) {
++
++  const char* input_filename = argv[1];
++
++  if (argc < 2) {
++    printf("Correct format: %s A.mtx\n", argv[0]);
++    return 0;
++  }
++
++
++#pragma omp parallel
++  {
++#pragma omp single
++    {
++      nthreads = omp_get_num_threads();
++      printf("num threads got: %d\n", nthreads);
++    }
++  }
++  
++  run_cc(input_filename, nthreads);
++}
+diff -ruN GraphMat-1.0-single-node.orig/src/class_MatrixDC.cpp GraphMat-1.0-single-node/src/class_MatrixDC.cpp
+--- GraphMat-1.0-single-node.orig/src/class_MatrixDC.cpp	2016-08-02 16:03:41.000000000 -0700
++++ GraphMat-1.0-single-node/src/class_MatrixDC.cpp	2017-12-26 22:07:01.859232349 -0800
+@@ -32,6 +32,7 @@
+ // Author: Satya Gautam Vadlamudi
+ #include "stdio.h"
+ #include <climits>
++#include <mm_malloc.h>
+ 
+ template <class E=int>
+ class MatrixDC {
+@@ -116,7 +117,7 @@
+ 
+   void print() {
+     printf("\n-------------------\n");
+-    printf("m: %d, n: %d, nzx: %d, nnz: %ld, isColumn: %d\n", m, n, nzx, nnz, isColumn);
++    printf("m: %d, n: %d, nzx: %d, nnz: %ld, isColumn: ?\n", m, n, nzx, nnz);
+     
+     for (int i = 0; i < nzx; i++) {
+       int end = i == nzx - 1 ? nnz : starty[i + 1];
+@@ -129,7 +130,7 @@
+ 
+   void printStats() {
+     printf("\n-------------------\n");
+-    printf("m: %d, n: %d, nzx: %d, nnz: %ld, isColumn: %d\n", m, n, nzx, nnz, isColumn);
++    printf("m: %d, n: %d, nzx: %d, nnz: %ld, isColumn: ?\n", m, n, nzx, nnz);
+     
+     int minx, miny, maxx, maxy;
+     minx = INT_MAX; miny = INT_MAX;
+diff -ruN GraphMat-1.0-single-node.orig/src/Graph.cpp GraphMat-1.0-single-node/src/Graph.cpp
+--- GraphMat-1.0-single-node.orig/src/Graph.cpp	2016-08-02 16:03:41.000000000 -0700
++++ GraphMat-1.0-single-node/src/Graph.cpp	2017-12-26 22:07:01.859232349 -0800
+@@ -40,6 +40,7 @@
+ #include <parallel/algorithm>
+ #include <omp.h>
+ #include <cassert>
++#include <mm_malloc.h>
+ 
+ inline double sec(struct timeval start, struct timeval end)
+ {
+@@ -647,7 +648,7 @@
+ }
+ 
+ template <typename E=int>
+-void read_from_txt(char * fname, int &m, int &n, int &nnz, edge_t<E> * &edges)
++void read_from_txt(const char * fname, int &m, int &n, int &nnz, edge_t<E> * &edges)
+ {
+   std::ifstream fin(fname);
+   if(fin.is_open())
+@@ -670,9 +671,9 @@
+     {
+       std::istringstream ln_ss(ln);
+       ln_ss >> edges[edge_id].src;
+-      edges[edge_id].src--;
++      edges[edge_id].src; //--;
+       ln_ss >> edges[edge_id].dst;
+-      edges[edge_id].dst--;
++      edges[edge_id].dst; //--;
+       ln_ss >> edges[edge_id].val;
+       edge_id++;
+     }
+@@ -1399,10 +1400,10 @@
+   return getId(vertexId, start_src_vertices, end_src_vertices, nparts);
+ }
+ 
+-template<class V, class E> 
+-int Graph<V,E>::getBlockIdByDst(int vertexId) const {
+-  return getId(vertexId, start_dst_vertices, end_dst_vertices, nparts);
+-}
++//template<class V, class E> 
++//int Graph<V,E>::getBlockIdByDst(int vertexId) const {
++//  return getId(vertexId, start_dst_vertices, end_dst_vertices, nparts);
++//}
+ 
+ template<class V, class E> 
+ int Graph<V,E>::getNumberOfVertices() const {
+diff -ruN GraphMat-1.0-single-node.orig/src/GraphMatRuntime.cpp GraphMat-1.0-single-node/src/GraphMatRuntime.cpp
+--- GraphMat-1.0-single-node.orig/src/GraphMatRuntime.cpp	2016-08-02 16:03:41.000000000 -0700
++++ GraphMat-1.0-single-node/src/GraphMatRuntime.cpp	2017-12-26 22:07:01.859232349 -0800
+@@ -36,6 +36,7 @@
+ #include <vector>
+ #include <utility>
+ #include <sys/time.h>
++#include <x86intrin.h>
+ 
+ #ifdef __ASSERT
+ #include <assert.h>
+diff -ruN GraphMat-1.0-single-node.orig/src/PageRank.cpp GraphMat-1.0-single-node/src/PageRank.cpp
+--- GraphMat-1.0-single-node.orig/src/PageRank.cpp	2016-08-02 16:03:41.000000000 -0700
++++ GraphMat-1.0-single-node/src/PageRank.cpp	2017-12-26 22:07:01.859232349 -0800
+@@ -32,6 +32,8 @@
+ 
+ #include "Degree.cpp"
+ 
++static int num_iterations = -1;
++
+ class PR {
+   public:
+     double pagerank;
+@@ -108,7 +110,7 @@
+   gettimeofday(&start, 0);
+ 
+   G.setAllActive();
+-  run_graph_program(&pr, G, -1, &pr_tmp);
++  run_graph_program(&pr, G, num_iterations, &pr_tmp);
+   
+   gettimeofday(&end, 0);
+   time = (end.tv_sec-start.tv_sec)*1e3+(end.tv_usec-start.tv_usec)*1e-3;
+@@ -116,9 +118,9 @@
+ 
+   graph_program_clear(pr_tmp);
+ 
+-  for (int i = 1; i <= std::min((unsigned long long int)25, (unsigned long long int)G.getNumberOfVertices()); i++) { 
+-    printf("%d : %d %f\n", i, G.getVertexproperty(i).degree, G.getVertexproperty(i).pagerank);
+-  }
++  //for (int i = 1; i <= std::min((unsigned long long int)25, (unsigned long long int)G.getNumberOfVertices()); i++) { 
++  //  printf("%d : %d %f\n", i, G.getVertexproperty(i).degree, G.getVertexproperty(i).pagerank);
++  //}
+ }
+ 
+ int main(int argc, char* argv[]) {
+@@ -129,6 +131,13 @@
+     printf("Correct format: %s A.mtx\n", argv[0]);
+     return 0;
+   }
++  
++  if (argc >= 3) {
++      num_iterations = atoi(argv[2]);
++      printf("Will run %d iterations.\n", num_iterations);
++  } else {
++      printf("Will run until convergence.\n");
++  }
+ 
+ #pragma omp parallel
+   {
+diff -ruN GraphMat-1.0-single-node.orig/src/SparseVector.cpp GraphMat-1.0-single-node/src/SparseVector.cpp
+--- GraphMat-1.0-single-node.orig/src/SparseVector.cpp	2016-08-02 16:03:41.000000000 -0700
++++ GraphMat-1.0-single-node/src/SparseVector.cpp	2017-12-26 22:07:01.859232349 -0800
+@@ -36,6 +36,7 @@
+ #include <immintrin.h>
+ #include "utils.h"
+ #include <iostream>
++#include <x86intrin.h>
+ 
+ inline void set_bitvector(unsigned int idx, int* bitvec) {
+     unsigned int neighbor_id = idx;

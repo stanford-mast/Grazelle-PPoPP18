@@ -1,0 +1,73 @@
+diff -ruN polymer-417778377a767c1c2ee535bd3eb56e22f4925626/numa-BFS.C polymer-patched/numa-BFS.C
+--- polymer-417778377a767c1c2ee535bd3eb56e22f4925626/numa-BFS.C	2015-07-05 23:55:11.000000000 -0700
++++ polymer-patched/numa-BFS.C	2017-12-27 10:15:31.984218690 -0800
+@@ -34,6 +34,7 @@
+ using namespace std;
+ 
+ int CORES_PER_NODE = 6;
++int NODE_USED = -1;
+ 
+ volatile int shouldStart = 0;
+ 
+@@ -477,7 +478,9 @@
+ void BFS(intT start, graph<vertex> &GA) {
+     numOfNode = numa_num_configured_nodes();
+     int numOfCpu = numa_num_configured_cpus();
+-    CORES_PER_NODE = 10;//numOfCpu / numOfNode;
++    CORES_PER_NODE = numOfCpu / numOfNode;
++    if (NODE_USED != -1)
++	numOfNode = NODE_USED;
+     vPerNode = GA.n / numOfNode;
+     pthread_barrier_init(&barr, NULL, numOfNode);
+     pthread_barrier_init(&global_barr, NULL, numOfNode * CORES_PER_NODE);
+@@ -538,12 +541,13 @@
+     global_counter = 0;
+     global_toggle = 0;
+     if(argc > 1) iFile = argv[1];
+-    if(argc > 2) start = atoi(argv[2]);
+-    if(argc > 3) if((string) argv[3] == (string) "-result") needResult = true;
++    if(argc > 2) NODE_USED = atoi(argv[2]);
++    if(argc > 3) start = atoi(argv[3]);
++    if(argc > 4) if((string) argv[4] == (string) "-result") needResult = true;
+     //pass -s flag if graph is already symmetric
+-    if(argc > 4) if((string) argv[4] == (string) "-s") symmetric = true;
++    if(argc > 5) if((string) argv[5] == (string) "-s") symmetric = true;
+     //pass -b flag if using binary file (also need to pass 2nd arg for now)
+-    if(argc > 5) if((string) argv[5] == (string) "-b") binary = true;
++    if(argc > 6) if((string) argv[6] == (string) "-b") binary = true;
+ 
+     if(symmetric) {
+ 	graph<symmetricVertex> G = 
+diff -ruN polymer-417778377a767c1c2ee535bd3eb56e22f4925626/numa-Components.C polymer-patched/numa-Components.C
+--- polymer-417778377a767c1c2ee535bd3eb56e22f4925626/numa-Components.C	2015-07-05 23:55:11.000000000 -0700
++++ polymer-patched/numa-Components.C	2017-12-27 10:18:18.497823450 -0800
+@@ -47,6 +47,7 @@
+ int numOfNode = 0;
+ 
+ int CORES_PER_NODE = 0;
++int NODE_USED = -1;
+ 
+ bool needResult = false;
+ 
+@@ -404,6 +405,7 @@
+     numOfNode = numa_num_configured_nodes();
+     int numOfCpu = numa_num_configured_cpus();
+     CORES_PER_NODE = numOfCpu / numOfNode;
++    if (NODE_USED != -1) numOfNode = NODE_USED;
+     printf("cores_per_node: %d\n", CORES_PER_NODE);
+     vPerNode = GA.n / numOfNode;
+     pthread_barrier_init(&barr, NULL, numOfNode);
+@@ -461,9 +463,10 @@
+   bool symmetric = false;
+   needResult = false;
+   if(argc > 1) iFile = argv[1];
+-  if(argc > 2) if((string) argv[2] == (string) "-s") symmetric = true;
+-  if(argc > 3) if((string) argv[3] == (string) "-result") needResult = true;
+-  if(argc > 4) if((string) argv[4] == (string) "-b") binary = true;
++  if(argc > 2) NODE_USED = atoi(argv[2]);
++  if(argc > 3) if((string) argv[3] == (string) "-s") symmetric = true;
++  if(argc > 4) if((string) argv[4] == (string) "-result") needResult = true;
++  if(argc > 5) if((string) argv[5] == (string) "-b") binary = true;
+ 
+   if(symmetric) {
+     graph<symmetricVertex> G = 

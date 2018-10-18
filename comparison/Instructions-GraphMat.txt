@@ -1,0 +1,29 @@
+Our evalation uses a modified version of GraphMat to correct the following issues:
+    - PageRank: allow number of iterations to be specified
+    - BFS: eliminate the 255-iteration cap (this artificially terminates the algorithm early)
+    - CC: add an implementation of this application (it is not supplied in the distribution)
+    - Misc: enable compilation using a GNU-based toolchain
+
+To obtain this modified version, apply the supplied patch to the original source code:
+    1. wget https://github.com/narayanan2004/GraphMat/archive/v1.0-single-node.tar.gz
+    2. tar -xzvf v1.0-single-node.tar.gz
+    3. cd GraphMat-1.0-single-node
+    4. patch -p1 < [path-to-graphmat-patch]
+
+To build GraphMat after producing the modified version:
+    1. cd GraphMat-1.0-single-node
+    2. make -j [num-jobs]
+
+Do not attempt to run GraphMat with uk-2007, otherwise it will crash.
+This is due to a GraphMat implementation issue, as described in the paper.
+
+GraphMat outputs application running time in milliseconds to the console.
+
+To run PageRank (Figure 11):
+    numactl -N [numa-nodes] -i [numa-nodes] bin/PageRank [graph-path] [num-iters]
+
+To run CC (Figure 12):
+    numactl -N [numa-nodes] -i [numa-nodes] bin/CC [graph-path]
+
+To run BFS (Figure 13):
+    numactl -N [numa-nodes] -i [numa-nodes] bin/BFS [graph-path] 1

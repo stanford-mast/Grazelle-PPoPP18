@@ -1,0 +1,36 @@
+Our evaluation uses a modified version of Ligra, as described in the paper.
+Accordingly, we have produced a patch that can be applied to Ligra v1.5 to apply these modifications:
+     - PageRank: ensure all iterations run (disables dynamic termination)
+     - PageRank: disable L1 norm computation (used only for dynamic termination)
+     - PageRank: add "Ligra-Push" mode
+     - CC/BFS: add "Ligra-Dense" mode
+
+To obtain this modified version, apply the supplied patch to the original source code:
+    1. wget https://github.com/jshun/ligra/archive/v.1.5.tar.gz
+    2. tar -xzvf v.1.5.tar.gz
+    3. cd ligra-v.1.5
+    4. patch -p1 < [path-to-ligra-patch]
+
+To build Ligra after producing the modified version:
+    1. cd ligra-v.1.5/apps
+    2. make CILK=1 -j [num-jobs]
+
+Ligra outputs application running time in seconds to the console.
+
+To run PageRank in "Ligra-Pull" mode (Figure 11):
+    numactl -N [numa-nodes] -i [numa-nodes] ./PageRank -maxiters [num-iters] [graph-path]
+
+To run PageRank in "Ligra-Push" mode (Figure 11):
+    numactl -N [numa-nodes] -i [numa-nodes] ./PageRankPush -maxiters [num-iters] [graph-path]
+
+To run CC in "Ligra" mode (Figure 12):
+    numactl -N [numa-nodes] -i [numa-nodes] ./Components [graph-path]
+
+To run CC in "Ligra-Dense" mode (Figure 12):
+    numactl -N [numa-nodes] -i [numa-nodes] ./ComponentsDense [graph-path]
+
+To run BFS in "Ligra" mode (Figure 13):
+    numactl -N [numa-nodes] -i [numa-nodes] ./BFS [graph-path]
+
+To run BFS in "Ligra-Dense" mode (Figure 13):
+    numactl -N [numa-nodes] -i [numa-nodes] ./BFSDense [graph-path]
